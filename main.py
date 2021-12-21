@@ -31,30 +31,33 @@ render.Initialize()
 canvas = render.CreateCanvas()
 game = Game(canvas.Width, canvas.Height)
 
-rps = timer.byFps(5)
+rps = timer.byFps(60)
 rps.reset()
 c_q = ord("q")
-lps = timer.byFps(10)
+lps = timer.byFps(20)
 lps.reset()
 
+OperationMap = {
+    c_up: Operation.MoveUp,
+    c_down: Operation.MoveDown,
+    c_left: Operation.MoveLeft,
+    c_right: Operation.MoveRight,
+}
+
 game.Initialize()
-game.Speed = 3
+game.Speed = 5
 while True:
     if can_get_ch():
         ch_num = ord(getch())
         if ch_num == 0xe0:
             ch_num = ord(getch())
 
-        if ch_num == c_up:
-            game.AddOp(Operation.MoveUp)
-        elif ch_num == c_down:
-            game.AddOp(Operation.MoveDown)
-        elif ch_num == c_left:
-            game.AddOp(Operation.MoveLeft)
-        elif ch_num == c_right:
-            game.AddOp(Operation.MoveRight)
-        elif ch_num == c_q:
+        if ch_num == c_q:
             break
+        elif ch_num in OperationMap:
+            op = OperationMap[ch_num]
+            game.AddOp(op)
+
     if lps.is_end:
         game.Tick()
         lps.reset()

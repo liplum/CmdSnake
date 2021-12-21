@@ -1,4 +1,3 @@
-from collections import Iterable
 from typing import Optional
 
 import numpy as np
@@ -9,11 +8,10 @@ from win32console import PyConsoleScreenBufferType, PyCOORDType
 
 import utils
 from Core import *
+from Shared import *
 
 XY = PyCOORDType
 CSBuffer = PyConsoleScreenBufferType
-Buffer = ndarray
-DirtyMarks = ndarray
 
 """
 |---x--------->
@@ -22,18 +20,6 @@ y 1 2 3 4 5 6 7
 | 2 3 4 5 6 7 8
 v 3 4 5 6 7 8 9
 """
-
-
-def Iterate2DRow(array2D: ndarray, row_index: int) -> Iterable:
-    column = array2D.shape[1]
-    for j in range(column):
-        yield array2D[row_index, j]
-
-
-def Iterate2DColumn(array2D: ndarray, column_index: int) -> Iterable:
-    row = array2D.shape[0]
-    for j in range(row):
-        yield array2D[i, column_index]
 
 
 class WinCanvas(Canvas):

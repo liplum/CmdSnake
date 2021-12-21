@@ -1,8 +1,23 @@
+import curses
+
+from Core import *
+from Shared import *
+
+"""
+|---x--------->
+| 0 1 2 3 4 5 6
+y 1 2 3 4 5 6 7
+| 2 3 4 5 6 7 8
+v 3 4 5 6 7 8 9
+"""
+
+
 class LinuxCanvas(Canvas):
-    def __init__(self, width: int, height: int, buffer: CSBuffer):
+    def __init__(self, width: int, height: int, buffer: Buffer, dirty_marks: DirtyMarks):
         self._width = width
         self._height = height
-        self._buffer: CSBuffer = buffer
+        self.buffer: Buffer = buffer
+        self.dirty_marks: DirtyMarks = dirty_marks
 
     @property
     def Width(self):
@@ -12,22 +27,27 @@ class LinuxCanvas(Canvas):
     def Height(self):
         return self._height
 
-    @property
-    def Buffer(self) -> CSBuffer:
-        return self._buffer
-
     def Char(self, x, y, char: str):
-        pass
+        self.buffer[y, x] = char
+        self.dirty_marks[y] = True
 
     def Str(self, x, y, string: str):
-        pass
+        for i, char in enumerate(string):
+            self.buffer[y, x + i] = char
+        self.dirty_marks[y] = True
 
 
 class LinuxRender(IRender):
 
-    def CreateCanvas(self) -> WinCanvas:
+    def OnResized(self):
+        stdscr = curses.initscr()
+
+    def Initialize(self):
+        pass
+
+    def CreateCanvas(self) -> LinuxCanvas:
         pass
 
     def Render(self, canvas: Canvas):
-        if isinstance(canvas, LinuxRender):
+        if isinstance(canvas, LinuxCanvas):
             canvas.Buffer.SetConsoleActiveScreenBuffer()

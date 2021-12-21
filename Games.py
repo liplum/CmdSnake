@@ -18,9 +18,14 @@ class Tickable:
     def __init__(self, game_manager: "Game"):
         self.ticks = 0
         self.GameManager: "Game" = game_manager
+        self.IsActive = True
 
     def Tick(self):
         self.ticks += 1
+
+    def Destroy(self):
+        self.GameManager.Remove(self)
+        self.IsActive = False
 
 
 class GameUnit(Tickable, Painter):
@@ -34,9 +39,6 @@ class GameUnit(Tickable, Painter):
 
     def OnCollided(self, obj: "GameUnit"):
         pass
-
-    def Destroy(self):
-        self.GameManager.Remove(self)
 
 
 class Board(Tickable, Painter):
@@ -96,8 +98,8 @@ class FoodManager(Tickable):
         super().Tick()
         if self.ticks % 10 == 1:
             gm = self.GameManager
-            xw = random.randint(0, gm.Width-1)
-            xh = random.randint(0, gm.Height-1)
+            xw = random.randint(0, gm.Width - 1)
+            xh = random.randint(0, gm.Height - 1)
             gm.AddGameObj(Toad(gm, xw, xh))
 
 
@@ -121,7 +123,7 @@ class Food(GameUnit):
 class Toad(Food):
 
     def PaintOn(self, canvas: Canvas):
-        canvas.Char(self.x,self.y,"X")
+        canvas.Char(self.x, self.y, "X")
 
 
 class Rate(Food):
@@ -189,6 +191,8 @@ class Snake(GameUnit):
         elif ly > board.Height - 1:
             head.y = 0
 
+        self.x = head.x
+        self.y = head.y
         tail = self.Bodies.pop()
         newBody = Body(self.GameManager, ox, oy)
         self.Bodies.appendleft(newBody)
@@ -196,9 +200,9 @@ class Snake(GameUnit):
         self.LastBodyPos: Point = lastBody.x, lastBody.y
 
     def AddBody(self):
-        lastBody = self.Bodies[-1]
-        newBody = Body(self.GameManager, lastBody.x - 1, lastBody.y)
-        self.Bodies.appendleft(newBody)
+        x, y = self.LastBodyPos
+        newBody = Body(self.GameManager, x - 1, y)
+        self.Bodies.append(newBody)
 
     def Tick(self):
         super().Tick()
@@ -237,7 +241,8 @@ class Game(Painter):
         self.ticks += 1
         self.HandleOp()
         for obj in self.TickableObjects:
-            obj.Tick()
+            if obj.IsActive:
+                obj.Tick()
         self.CheckCollide()
         self.HandleTasks()
 
@@ -255,11 +260,15 @@ class Game(Painter):
             if i == max_index:
                 break
             obj = allobjs[i]
+            if not obj.IsActive:
+                continue
             for j in range(i + 1, number):
                 target = allobjs[j]
+                if not target.IsActive:
+                    continue
                 if obj.IsCollidedWith(target) or target.IsCollidedWith(obj):
                     obj.OnCollided(target)
-                    target.OnCollided(target)
+                    target.OnCollided(obj)
 
     @property
     def Ticks(self) -> int:
@@ -293,7 +302,8 @@ class Game(Painter):
     def PaintOn(self, canvas: Canvas):
         self.Board.PaintOn(canvas)
         for obj in self.GameObjects:
-            obj.PaintOn(canvas)
+            if obj.IsActive:
+                obj.PaintOn(canvas)
 
     @property
     def NeedRender(self) -> bool:
@@ -310,6 +320,7 @@ class Game(Painter):
             self.GameObjects.add(obj)
             self.TickableObjects.add(obj)
             obj.GameManager = self
+            self.MarkDirty()
 
         self.Tasks.append(func)
 
@@ -317,15 +328,19 @@ class Game(Painter):
         def func():
             self.TickableObjects.add(obj)
             obj.GameManager = self
+            self.MarkDirty()
 
         self.Tasks.append(func)
 
-    def Remove(self, obj: Any) -> bool:
-        if isinstance(obj, GameUnit):
-            self.GameObjects.remove(obj)
-            self.TickableObjects.remove(obj)
-            return True
-        elif isinstance(obj, Tickable):
-            self.TickableObjects.remove(obj)
-            return True
-        return False
+    def Remove(self, obj: Any):
+        def func():
+            if isinstance(obj, GameUnit):
+                obj.IsActive = False
+                self.GameObjects.remove(obj)
+                self.TickableObjects.remove(obj)
+            elif isinstance(obj, Tickable):
+                obj.IsActive = False
+                self.TickableObjects.remove(obj)
+            self.MarkDirty()
+
+        self.Tasks.append(func)
