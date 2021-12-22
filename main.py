@@ -66,7 +66,6 @@ OperationMap = {
 }
 
 game.Initialize()
-game.Speed = 5
 try:
     while True:
         if can_get_ch():

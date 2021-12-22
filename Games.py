@@ -8,6 +8,7 @@ from Core import *
 T = TypeVar("T")
 Array2D = List[List[Optional[T]]]
 import random
+from events import event
 
 
 def Gen2DArray(row, column, init: T) -> Array2D:
@@ -18,7 +19,14 @@ class Tickable:
     def __init__(self, game_manager: "Game"):
         self.ticks = 0
         self.GameManager: "Game" = game_manager
+        self._onRemoved = event()
+        self._onAdded = event()
         self.IsActive = True
+
+    def Initialize(self):
+        self.IsActive = True
+        self.GameManager.AddTickable(self)
+        self.OnRemoved(self)
 
     def Tick(self):
         self.ticks += 1
@@ -26,6 +34,25 @@ class Tickable:
     def Destroy(self):
         self.GameManager.Remove(self)
         self.IsActive = False
+        self.OnRemoved(self)
+
+    @property
+    def OnRemoved(self):
+        """
+        Para 1:tickable object
+
+        :return: event(Tickable)
+        """
+        return self._onRemoved
+
+    @property
+    def OnAdded(self):
+        """
+        Para 1:tickable object
+
+        :return: event(Tickable)
+        """
+        return self._onAdded
 
 
 class GameUnit(Tickable, Painter):
@@ -74,6 +101,13 @@ class Direction(Enum):
     Right = Vector(1, 0)
 
 
+AllDirections = (
+    Direction.Left,
+    Direction.Right,
+    Direction.Up,
+    Direction.Down
+)
+
 HeadChars: Dict[Direction, str] = {
     Direction.Left: "<",
     Direction.Right: ">",
@@ -100,34 +134,70 @@ class FoodManager(Tickable):
             gm = self.GameManager
             xw = random.randint(0, gm.Width - 1)
             xh = random.randint(0, gm.Height - 1)
-            gm.AddGameObj(Toad(gm, xw, xh))
+            t = random.randint(0, 100)
+            if 0 <= t < 10:
+                food = Rate(gm, xw, xh)
+            else:
+                food = Toad(gm, xw, xh)
+            food.Initialize()
+            gm.AddGameObj(food)
 
 
 class Food(GameUnit):
 
-    def __init__(self, game_manager: "Game", x=0, y=0):
+    def __init__(self, game_manager: "Game", bonus, x=0, y=0):
         super().__init__(game_manager, x, y)
+        self.Bonus = bonus
 
     def OnEaten(self, snake: "Snake"):
-        snake.AddBody()
-        self.Destroy()
+        pass
 
     def OnSpawn(self, snake: "Snake"):
         pass
 
     def OnCollided(self, obj: "GameUnit"):
         if isinstance(obj, Snake):
-            self.OnEaten(obj)
-
+            if obj.Head.IsCollidedWith(self):
+                obj.Score += self.Bonus
+                self.OnEaten(obj)
+                self.Destroy()
 
 class Toad(Food):
+
+    def __init__(self, game_manager: "Game", x=0, y=0):
+        super().__init__(game_manager, 3, x, y)
 
     def PaintOn(self, canvas: Canvas):
         canvas.Char(self.x, self.y, "X")
 
+    def OnEaten(self, snake: "Snake"):
+        snake.AddBody()
+
 
 class Rate(Food):
-    pass
+
+    def __init__(self, game_manager: "Game", x=0, y=0):
+        super().__init__(game_manager, 5, x, y)
+
+    def PaintOn(self, canvas: Canvas):
+        canvas.Char(self.x, self.y, "L")
+
+    def Tick(self):
+        super().Tick()
+        rt = random.randint(1, 10)
+        if self.ticks % rt == 0:
+            dire = random.choice(AllDirections).value
+            self.x += dire.x
+            self.y += dire.y
+            x = self.x
+            y = self.y
+            gm = self.GameManager
+            if x < 0 or x > gm.Width - 1 or y < 0 or y > gm.Height - 1:
+                self.Destroy()
+
+    def OnEaten(self, snake: "Snake"):
+        snake.AddBody()
+        snake.AddBody()
 
 
 class Snake(GameUnit):
@@ -139,6 +209,8 @@ class Snake(GameUnit):
         self._direction: Direction = Direction.Right
         lastBody = self.Bodies[-1]
         self.LastBodyPos: Point = lastBody.x, lastBody.y
+        self.Score = 0
+        self._speed = 5
 
     @property
     def AllParts(self) -> Iterator[Body]:
@@ -206,9 +278,29 @@ class Snake(GameUnit):
 
     def Tick(self):
         super().Tick()
-        if self.ticks % self.GameManager.Speed == 0:
+        score = self.Score
+        if 0 < score < 10:
+            self.Speed = 5
+        elif score < 30:
+            self.Speed = 4
+        elif score < 40:
+            self.Speed = 3
+        elif score < 50:
+            self.Speed = 2
+        else:
+            self.Speed = 1
+
+        if self.ticks % self.Speed == 0:
             self.Move()
             self.GameManager.MarkDirty()
+
+    @property
+    def Speed(self) -> int:
+        return self._speed
+
+    @Speed.setter
+    def Speed(self, value: int):
+        self._speed = max(1, value)
 
 
 class Operation(Enum):
@@ -224,13 +316,13 @@ class Game(Painter):
         self.Height = height
         self.Tasks: Deque[Callable[[], None]] = deque()
         self.ticks = 0
-        self._speed = 20
         self.dirty = True
         self.GameObjects: Set[GameUnit] = set()
         self.TickableObjects: Set[Tickable] = set()
         self.Board: Board = Board(self, width, height)
         self.Snake: Snake = Snake(self, self.Board, width // 2, height // 2, 7)
         self.OperationQueue: Deque[Operation] = deque()
+        self.Snake.Initialize()
 
     def Initialize(self):
         self.AddGameObj(self.Snake)
@@ -273,14 +365,6 @@ class Game(Painter):
     @property
     def Ticks(self) -> int:
         return self.ticks
-
-    @property
-    def Speed(self) -> int:
-        return self._speed
-
-    @Speed.setter
-    def Speed(self, value: int):
-        self._speed = max(1, value)
 
     def HandleOp(self):
         queue = self.OperationQueue
