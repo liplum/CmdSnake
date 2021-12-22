@@ -3,7 +3,6 @@ from typing import Optional
 import numpy as np
 import win32con
 import win32console
-from numpy import ndarray
 from win32console import PyConsoleScreenBufferType, PyCOORDType
 
 import utils
@@ -51,12 +50,12 @@ class WinRender(IRender):
 
     def __init__(self):
         super().__init__()
-        self.char_matrix: Optional[ndarray] = None
-        self.dirty_marks: Optional[ndarray] = None
+        self.CharMatrix: Optional[ndarray] = None
+        self.DirtyMarks: Optional[ndarray] = None
         self.buffer: Optional[CSBuffer] = None
         self.width: int = 0
         self.height: int = 0
-        self.need_update = True
+        self.NeedRegen = True
 
     def Initialize(self):
         pass
@@ -73,29 +72,32 @@ class WinRender(IRender):
         self.height = size.Y
         size = self.height, self.width
         heights = self.height,
-        if not self.char_matrix or self.char_matrix.shape != size:
-            self.char_matrix = np.full(size, " ", dtype=str)
-        if not self.dirty_marks or self.dirty_marks.shape != heights:
-            self.dirty_marks = np.full(heights, False, dtype=bool)
-        self.need_update = False
+        if not self.CharMatrix or self.CharMatrix.shape != size:
+            self.CharMatrix = np.full(size, " ", dtype=str)
+        if not self.DirtyMarks or self.DirtyMarks.shape != heights:
+            self.DirtyMarks = np.full(heights, False, dtype=bool)
+        self.NeedRegen = False
 
     def OnResized(self):
-        self.need_update = True
+        self.NeedRegen = True
 
     def CreateCanvas(self) -> WinCanvas:
-        if self.need_update:
+        if self.NeedRegen:
             self.RegenBuffer()
-        return WinCanvas(self.width, self.height, self.char_matrix, self.dirty_marks)
+        return WinCanvas(self.width, self.height, self.CharMatrix, self.DirtyMarks)
 
     def Render(self, canvas: Canvas):
         if isinstance(canvas, WinCanvas):
-            char_matrix = self.char_matrix
+            cm = self.CharMatrix
             buf = self.buffer
-            dirty_marks = self.dirty_marks
-            for i, dirty in enumerate(dirty_marks):
+            dm = self.DirtyMarks
+            for i, dirty in enumerate(dm):
                 if dirty:
-                    strings = utils.chain(Iterate2DRow(char_matrix, i))
+                    line = utils.chain(Iterate2DRow(cm, i))
                     buf.WriteConsoleOutputCharacter(
-                        strings, XY(0, i)
+                        line, XY(0, i)
                     )
-                    dirty_marks[i] = False
+                    dm[i] = False
+
+    def Dispose(self):
+        pass

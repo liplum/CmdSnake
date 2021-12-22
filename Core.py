@@ -36,6 +36,9 @@ class IRender(ABC):
     def Render(self, canvas: Canvas):
         pass
 
+    @abstractmethod
+    def Dispose(self):
+        pass
 
 class Painter:
     def PaintOn(self, canvas: Canvas):

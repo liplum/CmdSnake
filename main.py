@@ -8,16 +8,38 @@ if sysinfo == "Windows":
     import Windows
     import msvcrt
 
-    getch = msvcrt.getwch
+    def getch():
+        ch_num = ord(msvcrt.getwch())
+        if ch_num == 0xe0:
+            ch_num = ord(msvcrt.getwch())
+        return ch_num
     can_get_ch = msvcrt.kbhit
     render = Windows.WinRender()
     c_left = 75
     c_right = 77
     c_down = 80
     c_up = 72
+    c_q = ord('q')
+elif sysinfo == "Linux":
+    import Linuxs
+    import curses
+    render: Linuxs.LinuxRender = Linuxs.LinuxRender()
 
-else:
-    pass
+
+    def getch():
+        try:
+            return render.Screen.get_wch()
+        except:
+            return None
+
+
+    can_get_ch = lambda: True
+    c_left = curses.KEY_LEFT
+    c_right = curses.KEY_RIGHT
+    c_down = curses.KEY_DOWN
+    c_up = curses.KEY_UP
+    c_q = ord('q')
+
 from Games import *
 
 import sys
@@ -33,7 +55,6 @@ game = Game(canvas.Width, canvas.Height)
 
 rps = timer.byFps(60)
 rps.reset()
-c_q = ord("q")
 lps = timer.byFps(20)
 lps.reset()
 
@@ -46,23 +67,23 @@ OperationMap = {
 
 game.Initialize()
 game.Speed = 5
-while True:
-    if can_get_ch():
-        ch_num = ord(getch())
-        if ch_num == 0xe0:
-            ch_num = ord(getch())
+try:
+    while True:
+        if can_get_ch():
+            ch_num = getch()
+            if ch_num == c_q:
+                break
+            elif ch_num in OperationMap:
+                op = OperationMap[ch_num]
+                game.AddOp(op)
 
-        if ch_num == c_q:
-            break
-        elif ch_num in OperationMap:
-            op = OperationMap[ch_num]
-            game.AddOp(op)
-
-    if lps.is_end:
-        game.Tick()
-        lps.reset()
-    if rps.is_end and game.NeedRender:
-        game.PaintOn(canvas)
-        render.Render(canvas)
-        rps.reset()
-        game.ClearDirty()
+        if lps.is_end:
+            game.Tick()
+            lps.reset()
+        if rps.is_end and game.NeedRender:
+            game.PaintOn(canvas)
+            render.Render(canvas)
+            rps.reset()
+            game.ClearDirty()
+finally:
+    render.Dispose()
