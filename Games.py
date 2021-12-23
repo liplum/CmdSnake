@@ -130,7 +130,7 @@ class FoodManager(Tickable):
 
     def Tick(self):
         super().Tick()
-        if self.ticks % 20 == 1:
+        if self.ticks % 2 == 1:
             gm = self.GameManager
             xw = random.randint(0, gm.Width - 1)
             xh = random.randint(0, gm.Height - 1)
@@ -139,7 +139,7 @@ class FoodManager(Tickable):
             if 0 <= t < 5:
                 mm = random.randint(1, 10)
                 cdm = random.randint(20, 100)
-                food = Bird(gm, xw, xh,changeDireM=cdm,moveM=mm)
+                food = Bird(gm, xw, xh, changeDireM=cdm, moveM=mm)
             elif t < 15:
                 rate_motivation = random.randint(1, 50)
                 food = Rate(gm, xw, xh, motivation=rate_motivation)
@@ -271,6 +271,11 @@ class Bird(Food):
         snake.AddBody()
         snake.AddBody()
         snake.AddBody()
+
+    def IsCollidedWith(self, obj: "GameUnit") -> bool:
+        sx = self.x
+        ox = obj.x
+        return sx <= ox < sx + 3 and self.y == obj.y
 
 
 class Snake(GameUnit):

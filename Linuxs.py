@@ -52,7 +52,8 @@ class LinuxCanvas(Canvas):
             nx = x + i
             if 0 <= nx < width and 0 <= y < height:
                 buffer[y, nx] = char
-        marks[y] = True
+        if 0 <= y < height:
+            marks[y] = True
 
     def Color(self, x: int, y: int, color):
         pass
