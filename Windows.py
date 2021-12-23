@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import win32con
 import win32console
@@ -22,28 +20,43 @@ v 3 4 5 6 7 8 9
 
 
 class WinCanvas(Canvas):
+
     def __init__(self, width: int, height: int, buffer: Buffer, dirty_marks: DirtyMarks):
-        self._width = width
-        self._height = height
+        self.__width = width
+        self.__height = height
         self.buffer: Buffer = buffer
         self.dirty_marks: DirtyMarks = dirty_marks
 
     @property
     def Width(self):
-        return self._width
+        return self.__width
 
     @property
     def Height(self):
-        return self._height
+        return self.__height
 
     def Char(self, x, y, char: str):
-        self.buffer[y, x] = char
-        self.dirty_marks[y] = True
+        if 0 <= x < self.Width and 0 <= y < self.Height:
+            self.buffer[y, x] = char
+            self.dirty_marks[y] = True
 
-    def Str(self, x, y, string: str):
+    def Str(self, x, y, string: Iterable[str]):
+        width = self.Width
+        height = self.Height
+        buffer = self.buffer
+        marks = self.dirty_marks
         for i, char in enumerate(string):
-            self.buffer[y, x + i] = char
-        self.dirty_marks[y] = True
+            nx = x + i
+            if 0 <= nx < width and 0 <= y < height:
+                buffer[y, nx] = char
+        if 0 <= y < height:
+            marks[y] = True
+
+    def Color(self, x: int, y: int, color):
+        pass
+
+    def Colors(self, x1: int, x2: int, y1: int, y2: int, color):
+        pass
 
 
 class WinRender(IRender):

@@ -1,6 +1,6 @@
 from collections import deque, namedtuple
 from enum import Enum, auto
-from typing import List, TypeVar, Optional, Deque, Iterator, Dict, Set, Any, Callable
+from typing import List, TypeVar, Deque, Iterator, Dict, Set, Any, Callable
 
 import utils
 from Core import *
@@ -130,17 +130,26 @@ class FoodManager(Tickable):
 
     def Tick(self):
         super().Tick()
-        if self.ticks % 10 == 1:
+        if self.ticks % 20 == 1:
             gm = self.GameManager
             xw = random.randint(0, gm.Width - 1)
             xh = random.randint(0, gm.Height - 1)
+            food = None
             t = random.randint(0, 100)
-            if 0 <= t < 10:
-                food = Rate(gm, xw, xh)
+            if 0 <= t < 5:
+                mm = random.randint(1, 10)
+                cdm = random.randint(20, 100)
+                food = Bird(gm, xw, xh,changeDireM=cdm,moveM=mm)
+            elif t < 15:
+                rate_motivation = random.randint(1, 50)
+                food = Rate(gm, xw, xh, motivation=rate_motivation)
             else:
-                food = Toad(gm, xw, xh)
-            food.Initialize()
-            gm.AddGameObj(food)
+                ok = random.randint(0, 3)
+                if ok == 0:
+                    food = Toad(gm, xw, xh)
+            if food:
+                food.Initialize()
+                gm.AddGameObj(food)
 
 
 class Food(GameUnit):
@@ -148,6 +157,7 @@ class Food(GameUnit):
     def __init__(self, game_manager: "Game", bonus, x=0, y=0):
         super().__init__(game_manager, x, y)
         self.Bonus = bonus
+        self.viewer = Viewer()
 
     def OnEaten(self, snake: "Snake"):
         pass
@@ -162,13 +172,20 @@ class Food(GameUnit):
                 self.OnEaten(obj)
                 self.Destroy()
 
+
 class Toad(Food):
 
     def __init__(self, game_manager: "Game", x=0, y=0):
         super().__init__(game_manager, 3, x, y)
 
     def PaintOn(self, canvas: Canvas):
-        canvas.Char(self.x, self.y, "X")
+        v = self.viewer
+        v.Bind(canvas)
+        v.X = self.x
+        v.Y = self.y
+        v.Width = 1
+        v.Height = 1
+        v.Char(0, 0, "X")
 
     def OnEaten(self, snake: "Snake"):
         snake.AddBody()
@@ -176,15 +193,22 @@ class Toad(Food):
 
 class Rate(Food):
 
-    def __init__(self, game_manager: "Game", x=0, y=0):
+    def __init__(self, game_manager: "Game", x=0, y=0, motivation=10):
         super().__init__(game_manager, 5, x, y)
+        self.Motivation = motivation
 
     def PaintOn(self, canvas: Canvas):
-        canvas.Char(self.x, self.y, "L")
+        v = self.viewer
+        v.Bind(canvas)
+        v.X = self.x
+        v.Y = self.y
+        v.Width = 1
+        v.Height = 1
+        v.Char(0, 0, "L")
 
     def Tick(self):
         super().Tick()
-        rt = random.randint(1, 10)
+        rt = random.randint(1, self.Motivation)
         if self.ticks % rt == 0:
             dire = random.choice(AllDirections).value
             self.x += dire.x
@@ -192,10 +216,59 @@ class Rate(Food):
             x = self.x
             y = self.y
             gm = self.GameManager
-            if x < 0 or x > gm.Width - 1 or y < 0 or y > gm.Height - 1:
+            if x < 0 or x > gm.Width or y < 0 or y > gm.Height:
                 self.Destroy()
+            self.GameManager.MarkDirty()
 
     def OnEaten(self, snake: "Snake"):
+        snake.AddBody()
+        snake.AddBody()
+
+
+class Bird(Food):
+    """
+    ^-^
+    """
+
+    def __init__(self, game_manager: "Game", x=0, y=0, changeDireM=20, moveM=5):
+        super().__init__(game_manager, 10, x, y)
+        self.Direction = Direction.Right.value
+        self.ChangeDireM = changeDireM
+        self.MoveM = moveM
+
+    def PaintOn(self, canvas: Canvas):
+        v = self.viewer
+        v.Bind(canvas)
+        v.X = self.x
+        v.Y = self.y
+        v.Width = 3
+        v.Height = 1
+        v.Str(0, 0, "^-^")
+
+    def RandomDirection(self):
+        dx = random.randint(-1, 1)
+        dy = random.randint(-1, 1)
+        self.Direction = Vector(dx, dy)
+
+    def Tick(self):
+        super().Tick()
+        rt = random.randint(1, self.ChangeDireM)
+        if self.ticks % rt == 0:
+            self.RandomDirection()
+        mt = random.randint(1, self.MoveM)
+        if self.ticks % mt == 0:
+            dire = self.Direction
+            self.x += dire.x
+            self.y += dire.y
+            x = self.x
+            y = self.y
+            gm = self.GameManager
+            if x < 0 or x > gm.Width or y < 0 or y > gm.Height:
+                self.Destroy()
+            self.GameManager.MarkDirty()
+
+    def OnEaten(self, snake: "Snake"):
+        snake.AddBody()
         snake.AddBody()
         snake.AddBody()
 
@@ -211,6 +284,7 @@ class Snake(GameUnit):
         self.LastBodyPos: Point = lastBody.x, lastBody.y
         self.Score = 0
         self._speed = 5
+        self.viewer = Viewer()
 
     @property
     def AllParts(self) -> Iterator[Body]:
@@ -223,10 +297,16 @@ class Snake(GameUnit):
         return HeadChars[self.Direction]
 
     def PaintOn(self, canvas: Canvas):
+        v = self.viewer
+        v.Bind(canvas)
+        v.X = 0
+        v.Y = 0
+        v.Width = canvas.Width
+        v.Height = canvas.Height
         for b in self.Bodies:
-            canvas.Char(b.x, b.y, "0")
+            v.Char(b.x, b.y, "0")
         head = self.Head
-        canvas.Char(head.x, head.y, self.HeadChar)
+        v.Char(head.x, head.y, self.HeadChar)
 
     def IsCollidedWith(self, obj: GameUnit) -> bool:
         for body in self.AllParts:

@@ -1,8 +1,8 @@
 import curses
 import os
-import time
 from curses import window
 from typing import Optional, Tuple
+from typing import Iterable
 
 import numpy as np
 
@@ -39,13 +39,26 @@ class LinuxCanvas(Canvas):
         return self._height
 
     def Char(self, x, y, char: str):
-        self.buffer[y, x] = char
-        self.dirty_marks[y] = True
+        if 0 <= x < self.Width and 0 <= y < self.Height:
+            self.buffer[y, x] = char
+            self.dirty_marks[y] = True
 
-    def Str(self, x, y, string: str):
+    def Str(self, x, y, string: Iterable[str]):
+        width = self.Width
+        height = self.Height
+        buffer = self.buffer
+        marks = self.dirty_marks
         for i, char in enumerate(string):
-            self.buffer[y, x + i] = char
-        self.dirty_marks[y] = True
+            nx = x + i
+            if 0 <= nx < width and 0 <= y < height:
+                buffer[y, nx] = char
+        marks[y] = True
+
+    def Color(self, x: int, y: int, color):
+        pass
+
+    def Colors(self, x1: int, x2: int, y1: int, y2: int, color):
+        pass
 
 
 class LinuxRender(IRender):
