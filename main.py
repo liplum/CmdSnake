@@ -20,7 +20,7 @@ if sysinfo == "Windows":
     c_down = 80
     c_up = 72
     c_q = ord('q')
-elif sysinfo == "Linux":
+else:
     import Linuxs
     import curses
     render: Linuxs.LinuxRender = Linuxs.LinuxRender()
